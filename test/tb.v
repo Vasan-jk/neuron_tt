@@ -52,58 +52,53 @@ endmodule
 
 module tb;
 
-    reg  [7:0] io_in;   // DUT inputs
-    wire [7:0] io_out;  // DUT outputs
+   reg  [7:0] io_in_reg;
+wire [7:0] io_out;
 
-    // DUT instance
-    tt_um_neuron dut (
-        .io_in(io_in),
-        .io_out(io_out)
-    );
+// DUT instance
+tt_um_neuron dut (
+    .io_in(io_in_reg),
+    .io_out(io_out)
+);
 
-    // Input mapping for readability
-    wire clk   = io_in[0];
-    wire rst_n = io_in[1];
+// Clock generation
+reg clk;
+assign io_in_reg[0] = clk;
 
-    // Clock generation (100 MHz → 10 ns period)
-    reg clk_reg;
-    assign io_in[0] = clk_reg;
-    always #5 clk_reg = ~clk_reg;
+initial clk = 0;
+always #5 clk = ~clk;  // 100MHz clock
 
-    // Testbench procedure
-    initial begin
-        $dumpfile("tb.vcd");
-        $dumpvars(0, tb);
+initial begin
+    $dumpfile("tb.vcd");
+    $dumpvars(0, tb);
 
-        // Initialize signals
-        clk_reg = 0;
-        io_in   = 8'd0;
+    // Reset low
+    io_in_reg = 8'b00_000000; // clk=0, rst_n=0
+    #20;
+    io_in_reg[1] = 1'b1; // release reset
 
-        // Reset low
-        io_in[1] = 0;  // rst_n = 0
-        #20;
-        io_in[1] = 1;  // release reset
+    // ---- Test 1 ----
+    io_in_reg[5:2] = 4'd2;  // x0
+    io_in_reg[7:4] = 4'd1;  // x1
+    #20;
+    $display("Test1: x0=%0d, x1=%0d => n3_out=%b", io_in_reg[5:2], io_in_reg[7:4], io_out[0]);
 
-        // -------- Test 1 --------
-        io_in[5:2] = 4'd2;  // x0
-        io_in[7:4] = 4'd1;  // x1
-        #20;
-        $display("Test1: x0=%0d, x1=%0d -> n3_out=%b", io_in[5:2], io_in[7:4], io_out[0]);
+    // ---- Test 2 ----
+    io_in_reg[5:2] = 4'd4;
+    io_in_reg[7:4] = 4'd3;
+    #20;
+    $display("Test2: x0=%0d, x1=%0d => n3_out=%b", io_in_reg[5:2], io_in_reg[7:4], io_out[0]);
 
-        // -------- Test 2 --------
-        io_in[5:2] = 4'd4;
-        io_in[7:4] = 4'd3;
-        #20;
-        $display("Test2: x0=%0d, x1=%0d -> n3_out=%b", io_in[5:2], io_in[7:4], io_out[0]);
+    // ---- Test 3 ----
+    io_in_reg[5:2] = 4'd0;
+    io_in_reg[7:4] = 4'd0;
+    #20;
+    $display("Test3: x0=%0d, x1=%0d => n3_out=%b", io_in_reg[5:2], io_in_reg[7:4], io_out[0]);
 
-        // -------- Test 3 --------
-        io_in[5:2] = 4'd0;
-        io_in[7:4] = 4'd0;
-        #20;
-        $display("Test3: x0=%0d, x1=%0d -> n3_out=%b", io_in[5:2], io_in[7:4], io_out[0]);
+    $display("Testbench completed.");
+    $finish;
+end
 
-        $finish;
-    end
 initial begin
         $dumpfile("tb.vcd");
         $dumpvars(0, tb);
