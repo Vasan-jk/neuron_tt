@@ -76,3 +76,23 @@ module tt_um_neuron (
     assign io_out = {7'b0000000, n3_out}; // only io_out[0] is used
 
 endmodule
+module neuron #(parameter W0 = 1, W1 = 1, BIAS = 0, THRESH = 4) (
+    input  wire clk,
+    input  wire rst_n,
+    input  wire [3:0] x0,
+    input  wire [3:0] x1,
+    output reg  y
+);
+
+    wire [7:0] p0 = W0 * x0;
+    wire [7:0] p1 = W1 * x1;
+    wire [8:0] sum = p0 + p1 + BIAS;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            y <= 1'b0;
+        else
+            y <= (sum > THRESH);
+    end
+
+endmodule
