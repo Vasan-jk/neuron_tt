@@ -58,7 +58,7 @@ module tb;
     wire [7:0] io_out;
 
     // DUT instantiation
-    neuron dut (
+   tt_um_neuron dut (
         .io_in(io_in),
         .io_out(io_out)
     );
