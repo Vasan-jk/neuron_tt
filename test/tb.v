@@ -52,69 +52,72 @@ endmodule
 
 module tb;
 
-    // Simulated inputs/outputs to the DUT
-    reg  [7:0] io_in;
-    wire [7:0] io_out;
+    // DUT signals
+    reg        clk;
+    reg        rst_n;
+    reg        ena;
+    reg  [7:0] ui_in;
+    wire [7:0] uo_out;
+    reg  [7:0] uio_in;
+    wire [7:0] uio_out;
+    wire [7:0] uio_oe;
 
     // Instantiate the DUT
     tt_um_neuron dut (
-        .io_in(io_in),
-        .io_out(io_out)
+        .clk(clk),
+        .rst_n(rst_n),
+        .ena(ena),
+        .ui_in(ui_in),
+        .uo_out(uo_out),
+        .uio_in(uio_in),
+        .uio_out(uio_out),
+        .uio_oe(uio_oe)
     );
 
-    // Internal registers for individual control
-    reg clk;
-    reg rst_n;
-    reg [3:0] x0, x1;
-
-    // Clock generation
+    // Clock generation (100 MHz -> 10 ns period)
     initial clk = 0;
-    always #5 clk = ~clk;  // 100 MHz
+    always #5 clk = ~clk;
 
-    // Assign all io_in bits in one place
-    always @(*) begin
-        io_in[0] = clk;
-        io_in[1] = rst_n;
-        io_in[5:2] = x0;
-        io_in[7:4] = x1;
-    end
-
+    // Test procedure
     initial begin
         $dumpfile("tb.vcd");
         $dumpvars(0, tb);
 
-        // Reset sequence
-        rst_n = 0;
-        x0 = 4'd0;
-        x1 = 4'd0;
+        // Initialize inputs
+        rst_n   = 0;
+        ena     = 1;
+        ui_in   = 8'd0;
+        uio_in  = 8'd0;
+
+        // Apply reset
         #20;
         rst_n = 1;
 
-        // -------------------------
-        // Test 1: x0=2, x1=1
-        // -------------------------
-        x0 = 4'd2;
-        x1 = 4'd1;
-        #20;
-        $display("Test 1: x0=%d, x1=%d => output=%b", x0, x1, io_out[0]);
+        // -------- Test 1 --------
+        ui_in = 8'b00010001; // x0=1, x1=1
+        #10;
+        $display("Test1: ui_in=%b -> uo_out[0]=%b", ui_in, uo_out[0]);
+        if (uo_out[0] !== 1'b1) $fatal("FAIL Test1");
 
-        // -------------------------
-        // Test 2: x0=4, x1=3
-        // -------------------------
-        x0 = 4'd4;
-        x1 = 4'd3;
-        #20;
-        $display("Test 2: x0=%d, x1=%d => output=%b", x0, x1, io_out[0]);
+        // -------- Test 2 --------
+        ui_in = 8'b00100010; // x0=2, x1=2
+        #10;
+        $display("Test2: ui_in=%b -> uo_out[0]=%b", ui_in, uo_out[0]);
+        if (uo_out[0] !== 1'b1) $fatal("FAIL Test2");
 
-        // -------------------------
-        // Test 3: x0=0, x1=0
-        // -------------------------
-        x0 = 4'd0;
-        x1 = 4'd0;
-        #20;
-        $display("Test 3: x0=%d, x1=%d => output=%b", x0, x1, io_out[0]);
+        // -------- Test 3 --------
+        ui_in = 8'b01000100; // x0=4, x1=4
+        #10;
+        $display("Test3: ui_in=%b -> uo_out[0]=%b", ui_in, uo_out[0]);
+        if (uo_out[0] !== 1'b1) $fatal("FAIL Test3");
 
-        $display("Simulation completed.");
+        // -------- Test 4 --------
+        ui_in = 8'b00000000; // x0=0, x1=0
+        #10;
+        $display("Test4: ui_in=%b -> uo_out[0]=%b", ui_in, uo_out[0]);
+        if (uo_out[0] !== 1'b0) $fatal("FAIL Test4");
+
+        $display("All tests passed!");
         $finish;
     end
 initial begin
