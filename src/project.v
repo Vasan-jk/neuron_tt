@@ -26,7 +26,7 @@ module tt_um_example (
 
 endmodule
 */
-module tt_um_neuron_layer (
+module neuron (
     input  wire [7:0] ui_in,    
     output wire [7:0] uo_out   
 );
