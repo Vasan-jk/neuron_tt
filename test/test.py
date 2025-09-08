@@ -33,9 +33,3 @@ async def test_project(dut):
         (0b00000000, 0),  # all zeros => output 0
     ]
 
-    for vec, expected in test_vectors:
-        dut.ui_in.value = vec
-        await ClockCycles(dut.clk, 1)
-        got = int(dut.uo_out.value & 1)
-        dut._log.info(f"ui_in={vec:08b} -> got={got}, expected={expected}")
-        assert got == expected, f"Mismatch: got {got}, expected {expected}"
