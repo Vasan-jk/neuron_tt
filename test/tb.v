@@ -52,59 +52,77 @@ endmodule
 
 module tb;
 
-   reg  [7:0] io_in_reg;
-wire [7:0] io_out;
+    // Simulated inputs/outputs to the DUT
+    reg  [7:0] io_in;
+    wire [7:0] io_out;
 
-// DUT instance
-tt_um_neuron dut (
-    .io_in(io_in_reg),
-    .io_out(io_out)
-);
+    // Instantiate the DUT
+    tt_um_neuron dut (
+        .io_in(io_in),
+        .io_out(io_out)
+    );
 
-// Clock generation
-reg clk;
-assign io_in_reg[0] = clk;
+    // Internal registers for individual control
+    reg clk;
+    reg rst_n;
+    reg [3:0] x0, x1;
 
-initial clk = 0;
-always #5 clk = ~clk;  // 100MHz clock
+    // Clock generation
+    initial clk = 0;
+    always #5 clk = ~clk;  // 100 MHz
 
-initial begin
-    $dumpfile("tb.vcd");
-    $dumpvars(0, tb);
+    // Assign all io_in bits in one place
+    always @(*) begin
+        io_in[0] = clk;
+        io_in[1] = rst_n;
+        io_in[5:2] = x0;
+        io_in[7:4] = x1;
+    end
 
-    // Reset low
-    io_in_reg = 8'b00_000000; // clk=0, rst_n=0
-    #20;
-    io_in_reg[1] = 1'b1; // release reset
+    initial begin
+        $dumpfile("tb.vcd");
+        $dumpvars(0, tb);
 
-    // ---- Test 1 ----
-    io_in_reg[5:2] = 4'd2;  // x0
-    io_in_reg[7:4] = 4'd1;  // x1
-    #20;
-    $display("Test1: x0=%0d, x1=%0d => n3_out=%b", io_in_reg[5:2], io_in_reg[7:4], io_out[0]);
+        // Reset sequence
+        rst_n = 0;
+        x0 = 4'd0;
+        x1 = 4'd0;
+        #20;
+        rst_n = 1;
 
-    // ---- Test 2 ----
-    io_in_reg[5:2] = 4'd4;
-    io_in_reg[7:4] = 4'd3;
-    #20;
-    $display("Test2: x0=%0d, x1=%0d => n3_out=%b", io_in_reg[5:2], io_in_reg[7:4], io_out[0]);
+        // -------------------------
+        // Test 1: x0=2, x1=1
+        // -------------------------
+        x0 = 4'd2;
+        x1 = 4'd1;
+        #20;
+        $display("Test 1: x0=%d, x1=%d => output=%b", x0, x1, io_out[0]);
 
-    // ---- Test 3 ----
-    io_in_reg[5:2] = 4'd0;
-    io_in_reg[7:4] = 4'd0;
-    #20;
-    $display("Test3: x0=%0d, x1=%0d => n3_out=%b", io_in_reg[5:2], io_in_reg[7:4], io_out[0]);
+        // -------------------------
+        // Test 2: x0=4, x1=3
+        // -------------------------
+        x0 = 4'd4;
+        x1 = 4'd3;
+        #20;
+        $display("Test 2: x0=%d, x1=%d => output=%b", x0, x1, io_out[0]);
 
-    $display("Testbench completed.");
-    $finish;
-end
+        // -------------------------
+        // Test 3: x0=0, x1=0
+        // -------------------------
+        x0 = 4'd0;
+        x1 = 4'd0;
+        #20;
+        $display("Test 3: x0=%d, x1=%d => output=%b", x0, x1, io_out[0]);
 
+        $display("Simulation completed.");
+        $finish;
+    end
 initial begin
         $dumpfile("tb.vcd");
         $dumpvars(0, tb);
     end
-
 endmodule
+
 
 
 
