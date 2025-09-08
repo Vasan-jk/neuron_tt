@@ -27,36 +27,52 @@ module tt_um_example (
 endmodule
 */
 module tt_um_neuron (
-    input  wire [7:0] ui_in,    
-    output wire [7:0] uo_out   
+    input  wire [7:0] io_in,   // inputs from harness
+    output wire [7:0] io_out   // outputs to harness
 );
-    // Pin mapping
-    wire clk   = ui_in[0];
-    wire rst_n = ui_in[1];
-    wire [3:0] x0 = ui_in[5:2];
-    wire [3:0] x1 = ui_in[7:4];
 
-    // Intermediate outputs
+    // -------------------------------
+    // Input mapping
+    // -------------------------------
+    wire clk   = io_in[0];       // clock
+    wire rst_n = io_in[1];       // active-low reset
+    wire [3:0] x0 = io_in[5:2];  // input vector 0
+    wire [3:0] x1 = io_in[7:4];  // input vector 1
+
+    // -------------------------------
+    // Internal neuron outputs
+    // -------------------------------
     wire n1_out, n2_out, n3_out;
 
-    // First layer: 2 neurons
+    // -------------------------------
+    // First layer neurons
+    // -------------------------------
     neuron #(.W0(2), .W1(1), .BIAS(1), .THRESH(6)) N1 (
-        .clk(clk), .rst_n(rst_n), .x0(x0), .x1(x1), .y(n1_out)
+        .clk(clk), .rst_n(rst_n),
+        .x0(x0), .x1(x1),
+        .y(n1_out)
     );
 
     neuron #(.W0(1), .W1(3), .BIAS(2), .THRESH(10)) N2 (
-        .clk(clk), .rst_n(rst_n), .x0(x0), .x1(x1), .y(n2_out)
+        .clk(clk), .rst_n(rst_n),
+        .x0(x0), .x1(x1),
+        .y(n2_out)
     );
 
-    // Second layer: 1 neuron taking N1 and N2 as "inputs"
+    // -------------------------------
+    // Second layer neuron
+    // Inputs are N1 and N2 outputs (1-bit each, extended to 4-bit)
+    // -------------------------------
     neuron #(.W0(2), .W1(2), .BIAS(0), .THRESH(2)) N3 (
-        .clk(clk), .rst_n(rst_n), 
-        .x0({3'b000, n1_out}),   // extend 1-bit to 4-bit
-        .x1({3'b000, n2_out}),   // extend 1-bit to 4-bit
+        .clk(clk), .rst_n(rst_n),
+        .x0({3'b000, n1_out}),
+        .x1({3'b000, n2_out}),
         .y(n3_out)
     );
 
-    // Output mapping: final neuron result on pin 0, rest 0
-    assign uo_out = {7'b0000000, n3_out};
+    // -------------------------------
+    // Output mapping
+    // -------------------------------
+    assign io_out = {7'b0000000, n3_out}; // only io_out[0] is used
 
 endmodule
