@@ -26,18 +26,25 @@ module tt_um_example (
 
 endmodule
 */
+// SPDX-License-Identifier: Apache-2.0
+// TinyTapeout neuron project wrapper
+
 module tt_um_neuron (
-    input  wire [7:0] io_in,   // inputs from harness
-    output wire [7:0] io_out   // outputs to harness
+    input  wire       clk,      // clock
+    input  wire       rst_n,    // active-low reset
+    input  wire       ena,      // enable signal
+    input  wire [7:0] ui_in,    // dedicated inputs
+    output wire [7:0] uo_out,   // dedicated outputs
+    input  wire [7:0] uio_in,   // IO inputs (unused)
+    output wire [7:0] uio_out,  // IO outputs (unused)
+    output wire [7:0] uio_oe    // IO output enable (unused)
 );
 
     // -------------------------------
-    // Input mapping
+    // Map ui_in to original neuron inputs
     // -------------------------------
-    wire clk   = io_in[0];       // clock
-    wire rst_n = io_in[1];       // active-low reset
-    wire [3:0] x0 = io_in[5:2];  // input vector 0
-    wire [3:0] x1 = io_in[7:4];  // input vector 1
+    wire [3:0] x0 = ui_in[3:0];
+    wire [3:0] x1 = ui_in[7:4];
 
     // -------------------------------
     // Internal neuron outputs
@@ -48,14 +55,18 @@ module tt_um_neuron (
     // First layer neurons
     // -------------------------------
     neuron #(.W0(2), .W1(1), .BIAS(1), .THRESH(6)) N1 (
-        .clk(clk), .rst_n(rst_n),
-        .x0(x0), .x1(x1),
+        .clk(clk),
+        .rst_n(rst_n),
+        .x0(x0),
+        .x1(x1),
         .y(n1_out)
     );
 
     neuron #(.W0(1), .W1(3), .BIAS(2), .THRESH(10)) N2 (
-        .clk(clk), .rst_n(rst_n),
-        .x0(x0), .x1(x1),
+        .clk(clk),
+        .rst_n(rst_n),
+        .x0(x0),
+        .x1(x1),
         .y(n2_out)
     );
 
@@ -64,7 +75,8 @@ module tt_um_neuron (
     // Inputs are N1 and N2 outputs (1-bit each, extended to 4-bit)
     // -------------------------------
     neuron #(.W0(2), .W1(2), .BIAS(0), .THRESH(2)) N3 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk),
+        .rst_n(rst_n),
         .x0({3'b000, n1_out}),
         .x1({3'b000, n2_out}),
         .y(n3_out)
@@ -73,9 +85,15 @@ module tt_um_neuron (
     // -------------------------------
     // Output mapping
     // -------------------------------
-    assign io_out = {7'b0000000, n3_out}; // only io_out[0] is used
+    assign uo_out   = {7'b0000000, n3_out}; // only bit 0 used
+    assign uio_out  = 8'd0;                 // unused
+    assign uio_oe   = 8'd0;                 // unused
 
 endmodule
+
+// -------------------------------
+// Neuron module (unchanged)
+// -------------------------------
 module neuron #(parameter W0 = 1, W1 = 1, BIAS = 0, THRESH = 4) (
     input  wire clk,
     input  wire rst_n,
@@ -84,8 +102,8 @@ module neuron #(parameter W0 = 1, W1 = 1, BIAS = 0, THRESH = 4) (
     output reg  y
 );
 
-    wire [7:0] p0 = W0 * x0;
-    wire [7:0] p1 = W1 * x1;
+    wire [7:0] p0  = W0 * x0;
+    wire [7:0] p1  = W1 * x1;
     wire [8:0] sum = p0 + p1 + BIAS;
 
     always @(posedge clk or negedge rst_n) begin
