@@ -52,67 +52,84 @@ endmodule
 
 module tb;
 
-    // Testbench signals
-    reg  [7:0] io_in;
-    wire [7:0] io_out;
+    // DUT inputs
+    reg clk;
+    reg rst_n;
+    reg ena;
+    reg [7:0] ui_in;
+    reg [7:0] uio_in;
 
-    // DUT instantiation
-   tt_um_neuron dut (
-        .io_in(io_in),
-        .io_out(io_out)
+    // DUT outputs
+    wire [7:0] uo_out;
+    wire [7:0] uio_out;
+    wire [7:0] uio_oe;
+
+    // Instantiate the DUT
+    tt_um_neuron dut (
+        .clk(clk),
+        .rst_n(rst_n),
+        .ena(ena),
+        .ui_in(ui_in),
+        .uo_out(uo_out),
+        .uio_in(uio_in),
+        .uio_out(uio_out),
+        .uio_oe(uio_oe)
     );
 
-    // Clock generation
-    initial begin
-        io_in[0] = 0; // clock
-        forever #5 io_in[0] = ~io_in[0]; // 100 MHz clock (10 ns period)
-    end
+    // Clock generation: 100 KHz → 10 us period = 10,000 ns
+    initial clk = 0;
+    always #5000 clk = ~clk; // Toggle every 5 us = 100 KHz
 
     // Stimulus
     initial begin
-        // Initialize inputs
-        io_in[1] = 0;   // rst_n = 0 (reset active)
-        io_in[5:2] = 0; // x0
-        io_in[7:4] = 0; // x1
+        $dumpfile("tb.vcd");
+        $dumpvars(0, tb);
 
-        // Hold reset for a few cycles
-        #20;
-        io_in[1] = 1; // release reset
+        ena = 1;
+        uio_in = 0;
+        ui_in = 0;
 
-        // Apply some test vectors
-        @(posedge io_in[0]);
-        io_in[5:2] = 4'd2; io_in[7:4] = 4'd1; // x0=2, x1=1
-        @(posedge io_in[0]);
-        @(posedge io_in[0]);
+        // Reset
+        rst_n = 0;
+        #20000;  // hold reset low for 20 us
+        rst_n = 1;
 
-        io_in[5:2] = 4'd3; io_in[7:4] = 4'd2; // x0=3, x1=2
-        @(posedge io_in[0]);
-        @(posedge io_in[0]);
+        $display("Start testing...");
 
-        io_in[5:2] = 4'd5; io_in[7:4] = 4'd1; // x0=5, x1=1
-        @(posedge io_in[0]);
-        @(posedge io_in[0]);
+        // Test cases
+        apply_test(8'b00010001, 1); // x0[0]=1, x1[0]=1 → output=1
+        apply_test(8'b00100010, 1); // x0[1]=1, x1[1]=0 → output=1
+        apply_test(8'b01000100, 1); // x0[2]=1, x1[2]=0 → output=1
+        apply_test(8'b00000000, 0); // all zeros → output=0
 
-        io_in[5:2] = 4'd7; io_in[7:4] = 4'd3; // x0=7, x1=3
-        @(posedge io_in[0]);
-        @(posedge io_in[0]);
-
-        // Finish simulation
-        #20;
+        $display("All tests done.");
         $finish;
     end
 
-    // Monitor outputs
-    initial begin
-        $monitor("Time=%0t | rst_n=%b | x0=%d | x1=%d | Output=%b",
-                 $time, io_in[1], io_in[5:2], io_in[7:4], io_out[0]);
-    end
+    // Task for applying input and checking output
+    task apply_test(input [7:0] vec, input expected);
+        begin
+            ui_in = vec;
+            @(posedge clk);
+            #1; // small delay after clock edge
+            $display("ui_in=%b -> uo_out[0]=%b, expected=%b",
+                     ui_in, uo_out[0], expected);
+            if (uo_out[0] !== expected) begin
+                $display("ERROR: mismatch detected!");
+                $stop;
+            end
+        end
+    endtask
 
-    // Optional: waveform dump for GTKWave
-    initial begin
+       initial begin
         $dumpfile("tb.vcd");
         $dumpvars(0, tb);
     end
 
+
 endmodule
+
+
+    // Optional: waveform dump for GTKWave
+
 
