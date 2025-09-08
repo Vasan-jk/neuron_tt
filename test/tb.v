@@ -4,6 +4,7 @@
 /* This testbench just instantiates the module and makes some convenient wires
    that can be driven / tested by the cocotb test.py.
 */
+/*
 module tb ();
 
   // Dump the signals to a VCD file. You can view it with gtkwave or surfer.
@@ -47,3 +48,72 @@ module tb ();
   );
 
 endmodule
+*/
+`timescale 1ns/1ps
+
+module tb;
+
+    // Testbench signals
+    reg  [7:0] io_in;
+    wire [7:0] io_out;
+
+    // DUT instantiation
+    neuron dut (
+        .io_in(io_in),
+        .io_out(io_out)
+    );
+
+    // Clock generation
+    initial begin
+        io_in[0] = 0; // clock
+        forever #5 io_in[0] = ~io_in[0]; // 100 MHz clock (10 ns period)
+    end
+
+    // Stimulus
+    initial begin
+        // Initialize inputs
+        io_in[1] = 0;   // rst_n = 0 (reset active)
+        io_in[5:2] = 0; // x0
+        io_in[7:4] = 0; // x1
+
+        // Hold reset for a few cycles
+        #20;
+        io_in[1] = 1; // release reset
+
+        // Apply some test vectors
+        @(posedge io_in[0]);
+        io_in[5:2] = 4'd2; io_in[7:4] = 4'd1; // x0=2, x1=1
+        @(posedge io_in[0]);
+        @(posedge io_in[0]);
+
+        io_in[5:2] = 4'd3; io_in[7:4] = 4'd2; // x0=3, x1=2
+        @(posedge io_in[0]);
+        @(posedge io_in[0]);
+
+        io_in[5:2] = 4'd5; io_in[7:4] = 4'd1; // x0=5, x1=1
+        @(posedge io_in[0]);
+        @(posedge io_in[0]);
+
+        io_in[5:2] = 4'd7; io_in[7:4] = 4'd3; // x0=7, x1=3
+        @(posedge io_in[0]);
+        @(posedge io_in[0]);
+
+        // Finish simulation
+        #20;
+        $finish;
+    end
+
+    // Monitor outputs
+    initial begin
+        $monitor("Time=%0t | rst_n=%b | x0=%d | x1=%d | Output=%b",
+                 $time, io_in[1], io_in[5:2], io_in[7:4], io_out[0]);
+    end
+
+    // Optional: waveform dump for GTKWave
+    initial begin
+        $dumpfile("tb.vcd");
+        $dumpvars(0, tb);
+    end
+
+endmodule
+
