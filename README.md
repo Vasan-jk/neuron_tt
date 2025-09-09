@@ -1,11 +1,11 @@
 
 # Adaptive Serial Pattern Detector
 
-A TinyTapeout-compliant configurable sequence detector that can detect user-defined bit patterns of variable length (up to 32 bits) in a serial data stream.
+A TinyTapeout-compliant configurable sequence detector that can detect user-defined bit patterns of variable length (up to 8 bits) in a serial data stream.
 
 ## Features
 
-* Detects **variable-length serial patterns** (1 to 32 bits).
+* Detects **variable-length serial patterns** (1 to 8 bits).
 * **Configurable at runtime** (pattern and sequence length can be set through inputs).
 * **Overlap detection** supported (e.g., detecting `1011` in `10111`).
 * Outputs a **match pulse** when the pattern is found.
@@ -15,17 +15,16 @@ A TinyTapeout-compliant configurable sequence detector that can detect user-defi
 
 ### Inputs (`ui_in`)
 
-| Bits   | Name        | Description                                |
-| ------ | ----------- | ------------------------------------------ |
-| [0]    | data_in     | Serial data input (1-bit per clock cycle). |
-| [5:1]  | seq_len     | Sequence length (1–31).                    |
-| [7:6]  | pattern_hi  | Upper 2 bits of the pattern (if needed).   |
+| Bits   | Name        | Description                                     |
+| ------ | ----------- | ------------------------------------------      |
+| [7:0]  | ui_in       | Reference input bits for the sequence detector. |
 
 ### Inputs (`uio_in`)
 
-| Bits   | Name        | Description                           |
-| ------ | ----------- | ------------------------------------- |
-| [7:0]  | pattern_lo  | Lower 8 bits of the sequence pattern. |
+| Bits   | Name        | Description                                       |
+| ------ | ----------- | -------------------------------------             |
+| [3:0]  | uio_in      | Lower 4 bits for the number of bits to be selected|
+| [4]    | uio_in      | Input pattern given seqentially for the number of bits selected |
 
 *(For longer patterns, unused higher bits are zero-padded.)*
 
@@ -52,8 +51,8 @@ A TinyTapeout-compliant configurable sequence detector that can detect user-defi
 
 ## How it Works
 
-1. Serial input bits are shifted into a **32-bit shift register** on each clock edge.
-2. A **mask** is generated based on `seq_len` to ignore unused bits.
+1. Serial input bits are shifted into a 32-bit shift register on each clock edge.
+2. A mask is generated based on `seq_len` to ignore unused bits.
 3. The masked shift register is compared with the masked pattern.
 4. If they match, the `match` output goes high for one clock cycle.
 
@@ -61,12 +60,12 @@ A TinyTapeout-compliant configurable sequence detector that can detect user-defi
 
 ## How to Test
 
-1. **Reset**: Hold `rst_n = 0` to clear the shift register.
-2. **Configure sequence**:
+1. Reset : Hold `rst_n = 0` to clear the shift register.
+2. Configure sequence:
 
-   * Set `seq_len` (1–31) on `ui_in[5:1]`.
-   * Load pattern bits into `uio_in[7:0]` (and `ui_in[7:6]` if needed).
-3. **Feed serial data**: Apply bits one at a time to `ui_in[0]` (data\_in).
+   * Set `seq_len` (0:7) on `uio_in[3:0]`.
+   * Load pattern bits into `uio_in[4]` sequentially.
+3. **Feed serial data**: Apply bits one at a time to `uio_in[4]` (data\_in).
 4. **Check output**: Observe `uo_out[0]`. A high pulse indicates the pattern was detected.
 
 
