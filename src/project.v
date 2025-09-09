@@ -31,9 +31,11 @@ endmodule
 
 module tt_um_neuron (
     input  wire       clk,      // clock
-    input  wire       rst_n,    // active-low reset// enable signal
+    input  wire       rst_n,    // active-low reset
+    input wire         ena,// enable signal
     input  wire [7:0] ui_in,    // dedicated inputs
-    output wire [7:0] uo_out,   // dedicated outputs   // IO inputs (unused)
+    output wire [7:0] uo_out,   // dedicated outputs   
+    input wire [7:0] uio_in,// IO inputs (unused)
     output wire [7:0] uio_out,  // IO outputs (unused)
     output wire [7:0] uio_oe    // IO output enable (unused)
 );
