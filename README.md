@@ -1,94 +1,109 @@
+# 2-Layer Digital Neuron Network
 
-# Adaptive Serial Pattern Detector
+A TinyTapeout-compliant digital neural network that demonstrates basic perceptron-style computation with weighted sums, biases, and thresholds.
+The design has two input features, two first-layer neurons, and one second-layer neuron that produces the final output.
 
-A TinyTapeout-compliant configurable sequence detector that can detect user-defined bit patterns of variable length (up to 8 bits) in a serial data stream.
 
 ## Features
 
-* Detects **variable-length serial patterns** (1 to 8 bits).
-* **Configurable at runtime** (pattern and sequence length can be set through inputs).
-* **Overlap detection** supported (e.g., detecting `1011` in `10111`).
-* Outputs a **match pulse** when the pattern is found.
-* Compact design based on a **shift register and comparator**.
+* **2 input features** (`x0`, `x1`), each 4-bit wide.
+* **3 neurons total**:
+
+  * Layer 1: Neuron N1, Neuron N2.
+  * Layer 2: Neuron N3 (combines N1 and N2 outputs).
+* **Parameterizable weights, bias, and threshold** for each neuron.
+* **Single-bit decision output** (`uo_out[0]`).
+* **Clocked + resettable** design for synchronous operation.
+
 
 ## I/O Mapping
 
 ### Inputs (`ui_in`)
 
-| Bits   | Name        | Description                                     |
-| ------ | ----------- | ------------------------------------------      |
-| [7:0]  | ui_in       | Reference input bits for the sequence detector. |
+| Bits   | Name | Description           |
+| ------ | ---- | --------------------- |
+| \[3:0] | x0   | 4-bit input feature 0 |
+| \[7:4] | x1   | 4-bit input feature 1 |
 
-### Inputs (`uio_in`)
+Other signals:
 
-| Bits   | Name        | Description                                       |
-| ------ | ----------- | -------------------------------------             |
-| [3:0]  | uio_in      | Lower 4 bits for the number of bits to be selected|
-| [4]    | uio_in      | Input pattern given seqentially for the number of bits selected |
-
-*(For longer patterns, unused higher bits are zero-padded.)*
+* `clk` → System clock.
+* `rst_n` → Active-low reset.
+* `ena` → Enable (currently unused, but provided by TinyTapeout wrapper).
 
 ### Outputs (`uo_out`)
 
-| Bits   | Name   | Description                                                            |
-| ------ | ------ | ---------------------------------------------------------------------- |
-| [0]    | match  | High (1) for one clock cycle when the configured sequence is detected. |
-| [7:1]  | unused | Reserved, tied to 0.                                                   |
+| Bits   | Name | Description                     |
+| ------ | ---- | ------------------------------- |
+| \[0]   | y    | Final neuron output (N3 result) |
+| \[7:1] | —    | Unused (always 0)               |
 
-### Outputs (`uio_out`, `uio_oe`)
+### Bidirectional IOs
 
-* Not used, tied to `0`.
+* `uio_in`, `uio_out`, `uio_oe` → Unused (tied to zero).
+
+
+## Neuron Configuration
+
+Each neuron implements:
+
+```
+sum = W0 * x0 + W1 * x1 + BIAS
+y   = (sum > THRESH) ? 1 : 0
+```
+
+| Neuron | Layer | W0 | W1 | BIAS | THRESH | Inputs           |
+| ------ | ----- | -- | -- | ---- | ------ | ---------------- |
+| N1     | 1     | 2  | 1  | 1    | 6      | x0, x1           |
+| N2     | 1     | 1  | 3  | 2    | 10     | x0, x1           |
+| N3     | 2     | 2  | 2  | 0    | 2      | N1\_out, N2\_out |
+
 
 ## Modes of Operation
 
-| Input Stream | seq_len | Pattern Configured | Action / Output                               |
-| ------------ | -------- | ------------------ | --------------------------------------------- |
-| `1011xxxx`   | 4        | `1011`             | `uo_out[0] = 1` (at cycle 4).                 |
-| `110110`     | 3        | `110`              | Pulse on detection at cycles 3 & 4 (overlap). |
-| `0000`       | 4        | `1011`             | No match → output stays 0.                    |
+Unlike the voting machine, this design doesn’t use explicit mode control — it operates continuously:
 
----
+* **Reset (rst\_n = 0)**: All neuron outputs reset to 0.
+* **Active (rst\_n = 1)**: Neurons compute their outputs every clock cycle.
+* **Final Decision**: Available on `uo_out[0]`.
+
 
 ## How it Works
 
-1. Serial input bits are shifted into a 32-bit shift register on each clock edge.
-2. A mask is generated based on `seq_len` to ignore unused bits.
-3. The masked shift register is compared with the masked pattern.
-4. If they match, the `match` output goes high for one clock cycle.
+1. Inputs `x0` and `x1` are applied through `ui_in[3:0]` and `ui_in[7:4]`.
+2. **Layer 1**:
 
----
+   * N1 and N2 compute weighted sums and output binary activations.
+3. **Layer 2**:
+
+   * N3 takes `N1_out` and `N2_out`, treats them as 1-bit inputs (extended to 4 bits), and produces the final result.
+4. Final output (`uo_out[0]`) represents the classification/decision of the network.
+
 
 ## How to Test
 
-1. Reset : Hold `rst_n = 0` to clear the shift register.
-2. Configure sequence:
+1. **Reset**: Drive `rst_n = 0` → ensures all outputs = 0.
+2. **Apply Inputs**: Provide values for `x0` and `x1` via `ui_in`.
+3. **Observe Outputs**:
 
-   * Set `seq_len` (0:7) on `uio_in[3:0]`.
-   * Load pattern bits into `uio_in[4]` sequentially.
-3. **Feed serial data**: Apply bits one at a time to `uio_in[4]` (data\_in).
-4. **Check output**: Observe `uo_out[0]`. A high pulse indicates the pattern was detected.
-
-
-## Example Test Case
-
-**Pattern**: `1011` (`seq_len = 4`).
-**Input Stream**: `1 → 0 → 1 → 1 → 1 → 0 → 1 → 1`.
-
-| Cycle | Input Bit | Shift Reg | Match Output  |
-| ----- | --------- | --------- | ------------- |
-| 1     | 1         | `1`       | 0             |
-| 2     | 0         | `10`      | 0             |
-| 3     | 1         | `101`     | 0             |
-| 4     | 1         | `1011`    | **1 (match)** |
-| 5     | 1         | `0111`    | 0             |
-| 6     | 0         | `1110`    | 0             |
-| 7     | 1         | `1101`    | **1 (match)** |
-| 8     | 1         | `1011`    | **1 (match)** |
+   * N1 and N2 activate based on thresholds.
+   * N3 decides based on N1 and N2.
+   * Final decision available on `uo_out[0]`.
 
 
-## Applications
+## Example Evaluation
 
-* Serial protocol parsers (detecting headers, sync words, etc.).
-* Pattern recognition in data streams.
-* Teaching hardware design concepts like **FSMs** and **sequence detectors**.
-* Useful for FPGA/TinyTapeout projects requiring configurable detection logic.
+For example, if `x0 = 3 (0011)` and `x1 = 5 (0101)`:
+
+* N1: `2*3 + 1*5 + 1 = 12`, threshold = 6 → Output = 1.
+* N2: `1*3 + 3*5 + 2 = 20`, threshold = 10 → Output = 1.
+* N3: `2*1 + 2*1 + 0 = 4`, threshold = 2 → Output = 1.
+
+**Final Output: `uo_out[0] = 1`**
+
+## Notes
+
+* This project is **TinyTapeout-compliant**.
+* Good demonstration of **neuromorphic computing in hardware**.
+* Can be extended with more neurons, inputs, or layers.
+
