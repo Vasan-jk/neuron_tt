@@ -1,41 +1,95 @@
-![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Tiny Tapeout Verilog Project Template
+# Adaptive Serial Pattern Detector
 
-- [Read the documentation for project](docs/info.md)
+A TinyTapeout-compliant configurable sequence detector that can detect user-defined bit patterns of variable length (up to 32 bits) in a serial data stream.
 
-## What is Tiny Tapeout?
+## Features
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
+* Detects **variable-length serial patterns** (1 to 32 bits).
+* **Configurable at runtime** (pattern and sequence length can be set through inputs).
+* **Overlap detection** supported (e.g., detecting `1011` in `10111`).
+* Outputs a **match pulse** when the pattern is found.
+* Compact design based on a **shift register and comparator**.
 
-To learn more and get started, visit https://tinytapeout.com.
+## I/O Mapping
 
-## Set up your Verilog project
+### Inputs (`ui_in`)
 
-1. Add your Verilog files to the `src` folder.
-2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/info.md](docs/info.md) and add a description of your project.
-4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
+| Bits   | Name        | Description                                |
+| ------ | ----------- | ------------------------------------------ |
+| [0]    | data_in     | Serial data input (1-bit per clock cycle). |
+| [5:1]  | seq_len     | Sequence length (1–31).                    |
+| [7:6]  | pattern_hi  | Upper 2 bits of the pattern (if needed).   |
 
-The GitHub action will automatically build the ASIC files using [OpenLane](https://www.zerotoasiccourse.com/terminology/openlane/).
+### Inputs (`uio_in`)
 
-## Enable GitHub actions to build the results page
+| Bits   | Name        | Description                           |
+| ------ | ----------- | ------------------------------------- |
+| [7:0]  | pattern_lo  | Lower 8 bits of the sequence pattern. |
 
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
+*(For longer patterns, unused higher bits are zero-padded.)*
 
-## Resources
+### Outputs (`uo_out`)
 
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
+| Bits   | Name   | Description                                                            |
+| ------ | ------ | ---------------------------------------------------------------------- |
+| [0]    | match  | High (1) for one clock cycle when the configured sequence is detected. |
+| [7:1]  | unused | Reserved, tied to 0.                                                   |
 
-## What next?
+### Outputs (`uio_out`, `uio_oe`)
 
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
+* Not used, tied to `0`.
+
+## Modes of Operation
+
+| Input Stream | seq_len | Pattern Configured | Action / Output                               |
+| ------------ | -------- | ------------------ | --------------------------------------------- |
+| `1011xxxx`   | 4        | `1011`             | `uo_out[0] = 1` (at cycle 4).                 |
+| `110110`     | 3        | `110`              | Pulse on detection at cycles 3 & 4 (overlap). |
+| `0000`       | 4        | `1011`             | No match → output stays 0.                    |
+
+---
+
+## How it Works
+
+1. Serial input bits are shifted into a **32-bit shift register** on each clock edge.
+2. A **mask** is generated based on `seq_len` to ignore unused bits.
+3. The masked shift register is compared with the masked pattern.
+4. If they match, the `match` output goes high for one clock cycle.
+
+---
+
+## How to Test
+
+1. **Reset**: Hold `rst_n = 0` to clear the shift register.
+2. **Configure sequence**:
+
+   * Set `seq_len` (1–31) on `ui_in[5:1]`.
+   * Load pattern bits into `uio_in[7:0]` (and `ui_in[7:6]` if needed).
+3. **Feed serial data**: Apply bits one at a time to `ui_in[0]` (data\_in).
+4. **Check output**: Observe `uo_out[0]`. A high pulse indicates the pattern was detected.
+
+
+## Example Test Case
+
+**Pattern**: `1011` (`seq_len = 4`).
+**Input Stream**: `1 → 0 → 1 → 1 → 1 → 0 → 1 → 1`.
+
+| Cycle | Input Bit | Shift Reg | Match Output  |
+| ----- | --------- | --------- | ------------- |
+| 1     | 1         | `1`       | 0             |
+| 2     | 0         | `10`      | 0             |
+| 3     | 1         | `101`     | 0             |
+| 4     | 1         | `1011`    | **1 (match)** |
+| 5     | 1         | `0111`    | 0             |
+| 6     | 0         | `1110`    | 0             |
+| 7     | 1         | `1101`    | **1 (match)** |
+| 8     | 1         | `1011`    | **1 (match)** |
+
+
+## Applications
+
+* Serial protocol parsers (detecting headers, sync words, etc.).
+* Pattern recognition in data streams.
+* Teaching hardware design concepts like **FSMs** and **sequence detectors**.
+* Useful for FPGA/TinyTapeout projects requiring configurable detection logic.
